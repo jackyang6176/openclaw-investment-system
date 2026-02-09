@@ -1,0 +1,15 @@
+{
+  "date": "2026-02-09",
+  "timestamp": "2026-02-09T21:49:55.510068",
+  "total_stocks_analyzed": 20,
+  "technical_strategy": [
+    {
+      "symbol": "2882",
+      "name": "Cathay Financial Holding Co., Ltd.",
+      "price": 77.19999694824219,
+      "ma20": 76.0049991607666,
+      "rsi": 52.88461185770866,
+      "macd": 0.4090336877154499,
+      "macd_signal": 0.5036898662972253,
+      "macd_hist": -0.09465617858177544,
+      "volume": 
