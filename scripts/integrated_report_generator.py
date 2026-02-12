@@ -1,99 +1,31 @@
 #!/usr/bin/env python3
-# 四策略投資報告生成器 (完全修正版 - 解決繁體中文和時間顯示問題)
+# 整合報告生成器 - 包含完整交易建議
 
 import json
 import os
 from datetime import datetime
+from complete_trading_advisor import CompleteTradingAdvisor
 
-# 繁體中文股票名稱映射
-CHINESE_STOCK_NAMES = {
-    '2330': '台積電',
-    '2317': '鴻海', 
-    '2454': '聯發科',
-    '2308': '台達電',
-    '2881': '富邦金',
-    '2882': '國泰金',
-    '1301': '台塑',
-    '1303': '南亞',
-    '2002': '中鋼',
-    '2412': '中華電',
-    '1216': '統一',
-    '2357': '華碩',
-    '2382': '廣達',
-    '3008': '大立光',
-    '3711': '日月光投控',
-    '2303': '聯電',
-    '2886': '兆豐金',
-    '5880': '合庫金',
-    '2891': '中信金',
-    '2892': '第一金'
-}
-
-class FourStrategyReportGenerator:
-    """四策略投資報告生成器 (完全修正版)"""
+class IntegratedReportGenerator:
+    """整合報告生成器"""
     
     def __init__(self, report_time=None):
         self.today = datetime.now().strftime("%Y-%m-%d")
         self.report_time = report_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    def get_chinese_name(self, symbol, english_name):
-        """獲取繁體中文股票名稱"""
-        if symbol in CHINESE_STOCK_NAMES:
-            return CHINESE_STOCK_NAMES[symbol]
-        # 如果沒有映射，嘗試從英文名稱提取
-        if 'Semiconductor' in english_name:
-            return '台積電'
-        elif 'Hon Hai' in english_name:
-            return '鴻海'
-        elif 'MediaTek' in english_name:
-            return '聯發科'
-        elif 'Cathay' in english_name:
-            return '國泰金'
-        elif 'Fubon' in english_name:
-            return '富邦金'
-        else:
-            return english_name
+        self.advisor = CompleteTradingAdvisor()
     
     def generate_html(self, analysis_result):
-        """生成HTML報告"""
+        """生成包含完整交易建議的HTML報告"""
         
-        # 提取各策略結果並轉換為繁體中文
-        technical_stocks = []
-        for stock in analysis_result.get('technical_strategy', []):
-            stock_copy = stock.copy()
-            stock_copy['name'] = self.get_chinese_name(stock['symbol'], stock['name'])
-            technical_stocks.append(stock_copy)
-            
-        fundamental_stocks = []
-        for stock in analysis_result.get('fundamental_strategy', []):
-            stock_copy = stock.copy()
-            stock_copy['name'] = self.get_chinese_name(stock['symbol'], stock['name'])
-            fundamental_stocks.append(stock_copy)
-            
-        hybrid_stocks = []
-        for stock in analysis_result.get('hybrid_strategy', []):
-            stock_copy = stock.copy()
-            stock_copy['name'] = self.get_chinese_name(stock['symbol'], stock['name'])
-            hybrid_stocks.append(stock_copy)
-            
-        thematic_results = analysis_result.get('thematic_strategy', {})
-        high_dividend = []
-        for stock in thematic_results.get('high_dividend', []):
-            stock_copy = stock.copy()
-            stock_copy['name'] = self.get_chinese_name(stock['symbol'], stock['name'])
-            high_dividend.append(stock_copy)
-            
-        growth_stocks = []
-        for stock in thematic_results.get('growth_stocks', []):
-            stock_copy = stock.copy()
-            stock_copy['name'] = self.get_chinese_name(stock['symbol'], stock['name'])
-            growth_stocks.append(stock_copy)
-            
-        value_stocks = []
-        for stock in thematic_results.get('value_stocks', []):
-            stock_copy = stock.copy()
-            stock_copy['name'] = self.get_chinese_name(stock['symbol'], stock['name'])
-            value_stocks.append(stock_copy)
+        # 提取各策略結果
+        technical_stocks = analysis_result.get('technical_strategy', [])
+        fundamental_stocks = analysis_result.get('fundamental_strategy', [])
+        hybrid_stocks = analysis_result.get('hybrid_strategy', [])
+        thematic_strategy = analysis_result.get('thematic_strategy', {})
+        
+        high_dividend = thematic_strategy.get('high_dividend', [])
+        growth_stocks = thematic_strategy.get('growth_stocks', [])
+        value_stocks = thematic_strategy.get('value_stocks', [])
         
         html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
@@ -169,49 +101,42 @@ class FourStrategyReportGenerator:
         }}
         
         .strategy-header {{
-            padding: 20px;
-            border-radius: 10px;
+            padding: 15px 20px;
             margin-bottom: 20px;
+            border-radius: 10px;
             color: white;
+            font-weight: bold;
         }}
         
         .strategy-title {{
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 10px;
+            font-size: 1.5rem;
+            margin-bottom: 5px;
         }}
         
         .strategy-description {{
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             opacity: 0.9;
         }}
         
         .stock-table {{
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-top: 15px;
         }}
         
         .stock-table th {{
             background: #2c3e50;
             color: white;
-            padding: 15px;
+            padding: 12px 10px;
             text-align: left;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }}
         
         .stock-table td {{
-            padding: 15px;
+            padding: 12px 10px;
             border-bottom: 1px solid #e9ecef;
-        }}
-        
-        .stock-table tr:last-child td {{
-            border-bottom: none;
+            font-size: 0.9rem;
         }}
         
         .stock-table tr:hover {{
@@ -219,47 +144,51 @@ class FourStrategyReportGenerator:
         }}
         
         .change-positive {{
-            color: #ef4444;
-            font-weight: bold;
-        }}
-        
-        .change-negative {{
             color: #10b981;
             font-weight: bold;
         }}
         
-        .score-cell {{
-            background: #dbeafe;
-            color: #1d4ed8;
+        .change-negative {{
+            color: #ef4444;
             font-weight: bold;
-            text-align: center;
-            border-radius: 5px;
-            padding: 5px;
+        }}
+        
+        .score-cell {{
+            font-weight: bold;
+            color: #4ca1af;
+        }}
+        
+        .trading-advice-cell {{
+            background: #f0fdf4;
+            border-left: 3px solid #10b981;
+            padding: 8px;
+            font-size: 0.85rem;
         }}
         
         .thematic-subsection {{
-            margin-top: 30px;
+            margin-top: 25px;
             padding-top: 20px;
-            border-top: 2px solid #e2e8f0;
+            border-top: 2px solid #e9ecef;
         }}
         
         .thematic-title {{
-            font-size: 1.4rem;
-            font-weight: 700;
+            font-size: 1.2rem;
+            font-weight: bold;
             margin-bottom: 15px;
         }}
         
         footer {{
-            background: #f1f5f9;
-            padding: 30px;
+            background: #1f2937;
+            color: white;
+            padding: 20px;
             text-align: center;
-            border-top: 1px solid #e2e8f0;
+            font-size: 0.9rem;
         }}
         
         .update-time {{
             margin-top: 10px;
             font-size: 0.9rem;
-            color: #64748b;
+            color: #94a3b8;
         }}
         
         @media (max-width: 768px) {{
@@ -271,10 +200,6 @@ class FourStrategyReportGenerator:
                 font-size: 2rem;
             }}
             
-            .strategy-section {{
-                padding: 15px;
-            }}
-            
             .stock-table {{
                 display: block;
                 overflow-x: auto;
@@ -282,8 +207,8 @@ class FourStrategyReportGenerator:
             
             .stock-table th,
             .stock-table td {{
-                padding: 10px 8px;
-                font-size: 0.85rem;
+                padding: 8px 6px;
+                font-size: 0.8rem;
             }}
         }}
     </style>
@@ -292,14 +217,17 @@ class FourStrategyReportGenerator:
     <div class="container">
         <header>
             <h1>🎯 四策略投資分析系統</h1>
-            <div class="subtitle">AI智能篩選 · 多維度投資策略</div>
+            <div class="subtitle">AI智能篩選 · 完整交易建議</div>
             <div class="date-badge">
                 <i class="fas fa-calendar-alt"></i> {self.today} 報告
             </div>
         </header>
         
         <div class="strategies-container">
-            
+"""
+        
+        # 技術面策略（包含交易建議）
+        html += """
             <!-- 技術面主導策略 -->
             <div class="strategy-section">
                 <div class="strategy-header" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
@@ -318,15 +246,19 @@ class FourStrategyReportGenerator:
                             <th>RSI</th>
                             <th>成交量</th>
                             <th>策略分數</th>
+                            <th>交易建議</th>
                         </tr>
                     </thead>
                     <tbody>
 """
         
-        # 技術面股票列表
         for i, stock in enumerate(technical_stocks, 1):
             change_class = "change-positive" if stock.get('change_percent', 0) >= 0 else "change-negative"
             change_sign = "+" if stock.get('change_percent', 0) >= 0 else ""
+            
+            # 獲取交易建議
+            advice = self.advisor.generate_trading_advice(stock)
+            
             html += f"""
                         <tr>
                             <td><strong>{i}</strong></td>
@@ -337,13 +269,18 @@ class FourStrategyReportGenerator:
                             <td>{stock['rsi']:.1f}</td>
                             <td>{int(stock['volume']):,}</td>
                             <td class="score-cell">{stock.get('strategy_score', 0)}</td>
+                            <td class="trading-advice-cell">
+                                買點: {advice['buy_points']}<br>
+                                目標: {advice['target_prices']}<br>
+                                停損: {advice['stop_loss']}
+                            </td>
                         </tr>
 """
         
         if not technical_stocks:
             html += """
                         <tr>
-                            <td colspan="8" style="text-align: center; color: #64748b;">今日無符合條件的股票</td>
+                            <td colspan="9" style="text-align: center; color: #64748b;">今日無符合條件的股票</td>
                         </tr>
 """
         
@@ -351,7 +288,10 @@ class FourStrategyReportGenerator:
                     </tbody>
                 </table>
             </div>
-            
+"""
+        
+        # 基本面策略（包含交易建議）
+        html += """
             <!-- 基本面主導策略 -->
             <div class="strategy-section">
                 <div class="strategy-header" style="background: linear-gradient(135deg, #4ecdc4 0%, #556270 100%);">
@@ -371,14 +311,18 @@ class FourStrategyReportGenerator:
                             <th>ROE</th>
                             <th>市值</th>
                             <th>策略分數</th>
+                            <th>交易建議</th>
                         </tr>
                     </thead>
                     <tbody>
 """
         
-        # 基本面股票列表
         for i, stock in enumerate(fundamental_stocks, 1):
             market_cap_billion = stock['market_cap'] / 1_000_000_000 if stock['market_cap'] else 0
+            
+            # 獲取交易建議
+            advice = self.advisor.generate_trading_advice(stock)
+            
             html += f"""
                         <tr>
                             <td><strong>{i}</strong></td>
@@ -390,13 +334,18 @@ class FourStrategyReportGenerator:
                             <td>{stock['roe']:.1f}%</td>
                             <td>{market_cap_billion:.1f}B</td>
                             <td class="score-cell">{stock.get('strategy_score', 0)}</td>
+                            <td class="trading-advice-cell">
+                                買點: {advice['buy_points']}<br>
+                                目標: {advice['target_prices']}<br>
+                                停損: {advice['stop_loss']}
+                            </td>
                         </tr>
 """
         
         if not fundamental_stocks:
             html += """
                         <tr>
-                            <td colspan="9" style="text-align: center; color: #64748b;">今日無符合條件的股票</td>
+                            <td colspan="10" style="text-align: center; color: #64748b;">今日無符合條件的股票</td>
                         </tr>
 """
         
@@ -404,7 +353,10 @@ class FourStrategyReportGenerator:
                     </tbody>
                 </table>
             </div>
-            
+"""
+        
+        # 混合策略（包含交易建議）
+        html += """
             <!-- 混合策略 -->
             <div class="strategy-section">
                 <div class="strategy-header" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);">
@@ -424,15 +376,19 @@ class FourStrategyReportGenerator:
                             <th>ROE</th>
                             <th>股利殖利率</th>
                             <th>策略分數</th>
+                            <th>交易建議</th>
                         </tr>
                     </thead>
                     <tbody>
 """
         
-        # 混合策略股票列表
         for i, stock in enumerate(hybrid_stocks, 1):
             change_class = "change-positive" if stock.get('change_percent', 0) >= 0 else "change-negative"
             change_sign = "+" if stock.get('change_percent', 0) >= 0 else ""
+            
+            # 獲取交易建議
+            advice = self.advisor.generate_trading_advice(stock)
+            
             html += f"""
                         <tr>
                             <td><strong>{i}</strong></td>
@@ -444,13 +400,18 @@ class FourStrategyReportGenerator:
                             <td>{stock['roe']:.1f}%</td>
                             <td>{stock['dividend_yield']:.1f}%</td>
                             <td class="score-cell">{stock.get('strategy_score', 0)}</td>
+                            <td class="trading-advice-cell">
+                                買點: {advice['buy_points']}<br>
+                                目標: {advice['target_prices']}<br>
+                                停損: {advice['stop_loss']}
+                            </td>
                         </tr>
 """
         
         if not hybrid_stocks:
             html += """
                         <tr>
-                            <td colspan="9" style="text-align: center; color: #64748b;">今日無符合條件的股票</td>
+                            <td colspan="10" style="text-align: center; color: #64748b;">今日無符合條件的股票</td>
                         </tr>
 """
         
@@ -458,7 +419,10 @@ class FourStrategyReportGenerator:
                     </tbody>
                 </table>
             </div>
-            
+"""
+        
+        # 特定主題策略（包含交易建議）
+        html += """
             <!-- 特定主題策略 -->
             <div class="strategy-section">
                 <div class="strategy-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -482,12 +446,14 @@ class FourStrategyReportGenerator:
                                 <th>股利殖利率</th>
                                 <th>本益比</th>
                                 <th>策略分數</th>
+                                <th>交易建議</th>
                             </tr>
                         </thead>
                         <tbody>
 """
         
         for i, stock in enumerate(high_dividend, 1):
+            advice = self.advisor.generate_trading_advice(stock)
             html += f"""
                             <tr>
                                 <td><strong>{i}</strong></td>
@@ -496,13 +462,18 @@ class FourStrategyReportGenerator:
                                 <td>{stock['dividend_yield']:.1f}%</td>
                                 <td>{stock['pe_ratio']:.1f}</td>
                                 <td class="score-cell">{stock.get('strategy_score', 0)}</td>
+                                <td class="trading-advice-cell">
+                                    買點: {advice['buy_points']}<br>
+                                    目標: {advice['target_prices']}<br>
+                                    停損: {advice['stop_loss']}
+                                </td>
                             </tr>
 """
         
         if not high_dividend:
             html += """
                             <tr>
-                                <td colspan="6" style="text-align: center; color: #64748b;">今日無符合條件的高股息股票</td>
+                                <td colspan="7" style="text-align: center; color: #64748b;">今日無符合條件的高股息股票</td>
                             </tr>
 """
         
@@ -528,6 +499,7 @@ class FourStrategyReportGenerator:
                                 <th>本益比</th>
                                 <th>市值</th>
                                 <th>策略分數</th>
+                                <th>交易建議</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -535,22 +507,28 @@ class FourStrategyReportGenerator:
         
         for i, stock in enumerate(growth_stocks, 1):
             market_cap_billion = stock['market_cap'] / 1_000_000_000 if stock['market_cap'] else 0
+            advice = self.advisor.generate_trading_advice(stock)
             html += f"""
                             <tr>
                                 <td><strong>{i}</strong></td>
                                 <td><strong>{stock['name']}</strong><br><small>{stock['symbol']}</small></td>
                                 <td>{stock['price']:.2f}</td>
                                 <td>{stock['roe']:.1f}%</td>
-                                <td>{stock['pe_ratio']:.1f}</td>
+                                <td>{stock['pe_ratio']:.1 f}</td>
                                 <td>{market_cap_billion:.1f}B</td>
                                 <td class="score-cell">{stock.get('strategy_score', 0)}</td>
+                                <td class="trading-advice-cell">
+                                    買點: {advice['buy_points']}<br>
+                                    目標: {advice['target_prices']}<br>
+                                    停損: {advice['stop_loss']}
+                                </td>
                             </tr>
 """
         
         if not growth_stocks:
             html += """
                             <tr>
-                                <td colspan="7" style="text-align: center; color: #64748b;">今日無符合條件的成長股</td>
+                                <td colspan="8" style="text-align: center; color: #64748b;">今日無符合條件的成長股</td>
                             </tr>
 """
         
@@ -576,12 +554,14 @@ class FourStrategyReportGenerator:
                                 <th>股價淨值比</th>
                                 <th>股利殖利率</th>
                                 <th>策略分數</th>
+                                <th>交易建議</th>
                             </tr>
                         </thead>
                         <tbody>
 """
         
         for i, stock in enumerate(value_stocks, 1):
+            advice = self.advisor.generate_trading_advice(stock)
             html += f"""
                             <tr>
                                 <td><strong>{i}</strong></td>
@@ -591,13 +571,18 @@ class FourStrategyReportGenerator:
                                 <td>{stock['pb_ratio']:.2f}</td>
                                 <td>{stock['dividend_yield']:.1f}%</td>
                                 <td class="score-cell">{stock.get('strategy_score', 0)}</td>
+                                <td class="trading-advice-cell">
+                                    買點: {advice['buy_points']}<br>
+                                    目標: {advice['target_prices']}<br>
+                                    停損: {advice['stop_loss']}
+                                </td>
                             </tr>
 """
         
         if not value_stocks:
             html += """
                             <tr>
-                                <td colspan="7" style="text-align: center; color: #64748b;">今日無符合條件的價值股</td>
+                                <td colspan="8" style="text-align: center; color: #64748b;">今日無符合條件的價值股</td>
                             </tr>
 """
         
@@ -622,16 +607,12 @@ class FourStrategyReportGenerator:
 </html>
 """
         
-        # 修正時間顯示
-        html = html.replace("{self.report_time}", self.report_time)
-        html = html.replace("{self.today}", self.today)
-        
         return html
     
     def save_report(self, analysis_result):
         """保存HTML報告"""
         html_content = self.generate_html(analysis_result)
-        html_path = self.get_html_path()
+        html_path = f"/home/admin/.openclaw/workspace/website/investment/four_strategy_report_{self.today}.html"
         
         # 確保目錄存在
         os.makedirs(os.path.dirname(html_path), exist_ok=True)
@@ -641,10 +622,6 @@ class FourStrategyReportGenerator:
         
         print(f"HTML報告已保存到: {html_path}")
         return html_path
-    
-    def get_html_path(self):
-        """獲取HTML報告路徑"""
-        return f"/home/admin/.openclaw/workspace/website/investment/four_strategy_report_{self.today}.html"
 
 if __name__ == "__main__":
     # 測試報告生成
@@ -652,10 +629,10 @@ if __name__ == "__main__":
     sys.path.append('.')
     
     # 載入測試數據
-    with open('/home/admin/.openclaw/workspace/investment/reports/four_strategy_report_2026-02-10.json', 'r', encoding='utf-8') as f:
+    with open('/home/admin/.openclaw/workspace/investment/reports/four_strategy_report_2026-02-11.json', 'r', encoding='utf-8') as f:
         test_data = json.load(f)
     
-    generator = FourStrategyReportGenerator()
+    generator = IntegratedReportGenerator()
     html_path = generator.save_report(test_data)
     
     print(f"測試報告生成完成: {html_path}")

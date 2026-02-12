@@ -8,6 +8,30 @@ from typing import List, Dict, Any
 import yfinance as yf
 import numpy as np
 
+# 繁體中文股票名稱映射
+CHINESE_STOCK_NAMES = {
+    '2330': '台積電',
+    '2317': '鴻海',
+    '2454': '聯發科',
+    '2308': '台達電',
+    '2881': '富邦金',
+    '2882': '國泰金',
+    '1301': '台塑',
+    '1303': '南亞',
+    '2002': '中鋼',
+    '2412': '中華電',
+    '1216': '統一',
+    '2357': '華碩',
+    '2382': '廣達',
+    '3008': '大立光',
+    '3711': '日月光投控',
+    '2303': '聯電',
+    '2886': '兆豐金',
+    '5880': '合庫金',
+    '2891': '中信金',
+    '2892': '第一金'
+}
+
 def convert_numpy_types(obj):
     """將 numpy 數據類型轉換為 Python 原生類型"""
     if isinstance(obj, np.integer):
@@ -77,9 +101,14 @@ class FourStrategyAnalyzer:
             signal = macd.ewm(span=9).mean()
             macd_hist = macd - signal
             
+            # 獲取繁體中文股票名稱
+            from chinese_stock_names import CHINESE_STOCK_NAMES
+            symbol_clean = symbol.replace('.TW', '')
+            chinese_name = CHINESE_STOCK_NAMES.get(symbol_clean, info.get('longName', symbol))
+            
             stock_data = {
-                'symbol': symbol.replace('.TW', ''),
-                'name': info.get('longName', symbol),
+                'symbol': symbol_clean,
+                'name': chinese_name,
                 'price': float(current_price),
                 'ma20': float(ma20),
                 'rsi': float(rsi),
