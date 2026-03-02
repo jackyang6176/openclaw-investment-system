@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-03-02T08:41:24.162588",
+  "holdings": {
+    "00655L": {
+      "name": "國泰 A50 正 2",
+      "type": "槓桿 ETF",
+      "last_price": 31.6,
+      "date": "2026-02-27"
+    },
+    "00882": {
+      "name": "中信中國高股息",
+      "type": "高股息 ETF",
+      "last_price": 16.1,
+      "date": "2026-02-27"
+    },
+    "00887": {
+      "name": "永豐中國科技 50 大",
+      "type": "科技主題 ETF",
+      "last_price": 13.29,
+      "date": "2026-02-26"
+    }
+  },
+  "kronos_predictions": [
+    {
+      "symbol": "00655L",
+      "name": "國泰 A50 正 2",
+      "last_close": 31.6,
+      "kronos_prediction": {
+        "signal": "BUY",
+        "confidence": 95,
+        "target_price": 27.52274984830553,
+        "stop_loss": 26.024061032093385,
+        "short_term_change": 1.159140317901627,
+        "mid_term_change": 4.334091522783303
+      },
+      "status": "success"
+    },
+    {
+      "symbol": "00882",
+      "name": "中信中國高股息",
+      "last_close": 16.1,
+      "kronos_prediction": {
+        "signal": "SELL",
+        "confidence": 95,
+        "target_price": 14.557174461201322,
+        "stop_loss": 15.557612147913154,
+        "short_term_change": -1.4309975565241575,
+        "mid_term_change": -5.452079748572294
+      },
+      "status": "success"
+    },
+    {
+      "symbol": "00887",
+      "name": "永豐中國科技 50 大",
+      "last_close": 13.29,
+      "kronos_prediction": {
+        "signal": "HOLD",
+        "confidence": 59.765715155007335,
+        "target_price": 13.067586207470129,
+        "stop_loss": 12.936910345395427,
+        "short_term_change": -0.1866144784121099,
+        "mid_term_change": -0.7076176680144107
+      },
+      "status": "success"
+    }
+  ],
+  "analysis": {
+    "status": "complete",
+    "data_source": "manual",
+    "kronos_enabled": true,
+    "note": "已整合 Kronos AI 技術分析，等待 Fubon API 使用真實數據"
+  }
+}

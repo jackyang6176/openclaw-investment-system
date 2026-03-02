@@ -15,8 +15,8 @@ import json
 def main():
     """主執行函數"""
     print("=" * 70)
-    print("OpenClaw 四策略投資分析系統 - 2026-02-09")
-    print("策略分區: 技術面 | 基本面 | 混合策略 | 特定主題")
+    print("OpenClaw 四策略投資分析系統 - 2026-03-02")
+    print("策略分區：技術面 | 基本面 | 混合策略 | 特定主題")
     print("=" * 70)
     
     # 檢查是否為交易日
@@ -30,20 +30,22 @@ def main():
         # 1. 執行四策略投資分析
         print("\n[1/4] 執行四策略投資分析...")
         analyzer = FourStrategyAnalyzer()
-        analysis_result = analyzer.analyze_all_strategies()
+        analysis_result = analyzer.analyze()
         
-        # 2. 生成HTML報告
-        print("\n[2/4] 生成四策略HTML報告...")
+        # 2. 生成 HTML 報告
+        print("\n[2/4] 生成四策略 HTML 報告...")
         generator = FourStrategyReportGenerator()
         html_path = generator.save_report(analysis_result)
         
-        # 3. 發送Discord通知
-        print("\n[3/4] 發送Discord通知...")
+        # 3. 發送 Discord 通知
+        print("\n[3/4] 發送 Discord 通知...")
         notifier = DiscordNotifier()
         notification_sent = notifier.send_daily_report(analysis_result, html_path)
         
-        # 4. 保存JSON報告
-        json_path = f"/home/admin/.openclaw/workspace/investment/reports/four_strategy_report_{analysis_result['date']}.json"
+        # 4. 保存 JSON 報告
+        report_date = datetime.now().strftime('%Y-%m-%d')
+        json_path = f"/home/admin/.openclaw/workspace/investment/reports/four_strategy_report_{report_date}.json"
+        
         # 轉換 numpy 數據類型為 Python 原生類型
         def convert_numpy_types(obj):
             if isinstance(obj, dict):
@@ -62,26 +64,32 @@ def main():
         
         print("\n" + "=" * 70)
         print("✅ 四策略投資分析完成！")
-        print(f"   報告網址: http://aiothome.top/investment/four_strategy_report_{analysis_result['date']}.html")
-        print(f"   生成時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"   分析股票: {analysis_result['total_stocks_analyzed']}支")
-        print(f"   技術面策略: {len(analysis_result['technical_strategy'])}支推薦")
-        print(f"   基本面策略: {len(analysis_result['fundamental_strategy'])}支推薦")
-        print(f"   混合策略: {len(analysis_result['hybrid_strategy'])}支推薦")
-        thematic = analysis_result['thematic_strategy']
-        print(f"   主題策略: 高股息({len(thematic['high_dividend'])}) + 成長股({len(thematic['growth_stocks'])}) + 價值股({len(thematic['value_stocks'])})")
+        print(f"   報告網址：http://aiothome.top/investment/four_strategy_report_{report_date}.html")
+        print(f"   生成時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # 安全地獲取統計數據
+        total_stocks = len(analysis_result.get('holdings', {}))
+        predictions = analysis_result.get('kronos_predictions', [])
+        print(f"   分析持倉：{total_stocks}支 ETF")
+        print(f"   Kronos 預測：{len(predictions)}個信號")
+        
+        # 顯示各信號統計
+        buy_signals = sum(1 for p in predictions if p.get('signal') == 'BUY')
+        sell_signals = sum(1 for p in predictions if p.get('signal') == 'SELL')
+        hold_signals = sum(1 for p in predictions if p.get('signal') == 'HOLD')
+        print(f"   買入信號：{buy_signals} | 賣出信號：{sell_signals} | 持有信號：{hold_signals}")
         
         if notification_sent:
-            print("   Discord通知: 已發送 ✓")
+            print("   Discord 通知：已發送 ✓")
         else:
-            print("   Discord通知: 未發送 (請檢查配置)")
+            print("   Discord 通知：未發送 (請檢查配置)")
         
         print("=" * 70)
         
         return True
         
     except Exception as e:
-        print(f"\n❌ 執行失敗: {str(e)}")
+        print(f"\n❌ 執行失敗：{str(e)}")
         import traceback
         traceback.print_exc()
         return False
