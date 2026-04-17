@@ -32,7 +32,7 @@ PDRIVE = "/home/admin/pCloudDrive/openclaw/stock-screener"
 OUTPUT_FILE = f"{PDRIVE}/data/tracking_list.json"
 STATE_FILE = f"{WORKSPACE}/tmp/strategy_a_state.json"
 LOG_FILE = f"{PDRIVE}/logs/strategy_a_screener.log"
-DELAY = 1  # 每呼叫間隔 1 秒（Rate limit: 60次/分鐘）
+DELAY = 2  # 每呼叫間隔 2 秒（Rate limit: 30次/分鐘）
 DATE_RANGE = 10  # 一次取10天日曆日
 
 # ====== TWSE 下載 ======
