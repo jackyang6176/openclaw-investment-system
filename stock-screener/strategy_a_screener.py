@@ -32,7 +32,8 @@ PDRIVE = "/home/admin/pCloudDrive/openclaw/stock-screener"
 OUTPUT_FILE = f"{PDRIVE}/data/tracking_list.json"
 STATE_FILE = f"{WORKSPACE}/tmp/strategy_a_state.json"
 LOG_FILE = f"{PDRIVE}/logs/strategy_a_screener.log"
-DELAY = 2  # 每呼叫間隔 2 秒（Rate limit: 30次/分鐘）
+DELAY = 10  # 每呼叫間隔 10 秒（Rate limit: 30次/分鐘，每檔4次 = 每分鐘最多6檔）
+RETRY_WAIT = 60  # 遇到 429 時等候 60 秒後重試
 DATE_RANGE = 10  # 一次取10天日曆日
 
 # ====== TWSE 下載 ======
@@ -115,6 +116,7 @@ def get_technical_data(fc, code):
     """
     取得技術指標資料（MA5, MA20, KDJ, 成交量）
     一次取10天日曆日，回傳最近3-4個交易日的資料
+    遇到 429 Rate Limit：等候 60 秒後自動重試
     """
     from_date, to_date = get_date_range()
     results = {
@@ -124,45 +126,48 @@ def get_technical_data(fc, code):
         'candles': None
     }
     
+    def safe_call(func, *args, **kwargs):
+        """帶有 429 重試機制的安全呼叫"""
+        for attempt in range(2):  # 最多重試 1 次
+            try:
+                result = func(*args, **kwargs)
+                time.sleep(DELAY)
+                return result
+            except Exception as e:
+                err_str = str(e)
+                if '429' in err_str or 'Rate limit' in err_str:
+                    print(f"\n  [RATE LIMIT] 等待 {RETRY_WAIT} 秒後重試...")
+                    time.sleep(RETRY_WAIT)
+                    continue
+                else:
+                    raise
+        return None
+    
     # 1. MA5（帶日期區間）
-    try:
-        sma5 = fc.get_sma(code, period=5, from_date=from_date, to_date=to_date)
-        time.sleep(DELAY)
-        if sma5 and len(sma5) >= 4:
-            results['sma5'] = sma5[-4:]  # 取最後4筆（最近4個交易日）
-    except Exception as e:
-        print(f"  [WARN] {code} SMA5 錯誤: {e}")
+    sma5 = safe_call(fc.get_sma, code, period=5, from_date=from_date, to_date=to_date)
+    if sma5 and len(sma5) >= 4:
+        results['sma5'] = sma5[-4:]
+    else:
         return results
     
     # 2. MA20（帶日期區間）
-    try:
-        sma20 = fc.get_sma(code, period=20, from_date=from_date, to_date=to_date)
-        time.sleep(DELAY)
-        if sma20 and len(sma20) >= 4:
-            results['sma20'] = sma20[-4:]
-    except Exception as e:
-        print(f"  [WARN] {code} SMA20 錯誤: {e}")
+    sma20 = safe_call(fc.get_sma, code, period=20, from_date=from_date, to_date=to_date)
+    if sma20 and len(sma20) >= 4:
+        results['sma20'] = sma20[-4:]
+    else:
         return results
     
     # 3. KDJ（帶日期區間，回傳陣列）
-    try:
-        kdj = fc.get_kdj(code, from_date=from_date, to_date=to_date)
-        time.sleep(DELAY)
-        if kdj and len(kdj) >= 3:
-            results['kdj'] = kdj[-3:]  # 取最後3筆（最近3個交易日）
-    except Exception as e:
-        print(f"  [WARN] {code} KDJ 錯誤: {e}")
+    kdj = safe_call(fc.get_kdj, code, from_date=from_date, to_date=to_date)
+    if kdj and len(kdj) >= 3:
+        results['kdj'] = kdj[-3:]
+    else:
         return results
     
     # 4. 成交量（candles，帶日期區間）
-    try:
-        candles = fc.get_candles(code, from_date=from_date, to_date=to_date)
-        time.sleep(DELAY)
-        if candles and len(candles) >= 4:
-            results['candles'] = candles[-4:]  # 取最後4筆
-    except Exception as e:
-        print(f"  [WARN] {code} Candles 錯誤: {e}")
-        return results
+    candles = safe_call(fc.get_candles, code, from_date=from_date, to_date=to_date)
+    if candles and len(candles) >= 4:
+        results['candles'] = candles[-4:]
     
     return results
 
