@@ -32,8 +32,8 @@ PDRIVE = "/home/admin/pCloudDrive/openclaw/stock-screener"
 OUTPUT_FILE = f"{PDRIVE}/data/tracking_list.json"
 STATE_FILE = f"{WORKSPACE}/tmp/strategy_a_state.json"
 LOG_FILE = f"{PDRIVE}/logs/strategy_a_screener.log"
-DELAY = 10  # 每呼叫間隔 10 秒（Rate limit: 30次/分鐘，每檔4次 = 每分鐘最多6檔）
-RETRY_WAIT = 60  # 遇到 429 時等候 60 秒後重試
+DELAY = 6   # 每檔間隔 6 秒（Rate limit: 60次/分鐘，每檔4次 = 15檔/分鐘，用6秒綽綽有餘）
+RETRY_WAIT = 120  # 遇到 429 時等候 120 秒（需等一個完整時間窗口）
 DATE_RANGE = 10  # 一次取10天日曆日
 
 # ====== TWSE 下載 ======
@@ -127,11 +127,10 @@ def get_technical_data(fc, code):
     }
     
     def safe_call(func, *args, **kwargs):
-        """帶有 429 重試機制的安全呼叫"""
+        """帶有 429 重試機制的安全呼叫（不再這裡sleep，避免過度延遲）"""
         for attempt in range(2):  # 最多重試 1 次
             try:
                 result = func(*args, **kwargs)
-                time.sleep(DELAY)
                 return result
             except Exception as e:
                 err_str = str(e)
@@ -355,6 +354,7 @@ def main():
     
     for i, code in enumerate(codes):
         tech_data = get_technical_data(fc, code)
+        time.sleep(DELAY)  # 每檔查完後休息一下，避免超過 Rate Limit
         result = analyze_strategy_a(code, twse_data, tech_data)
         
         if result:
