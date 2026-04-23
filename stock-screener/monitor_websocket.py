@@ -27,7 +27,7 @@ sys.path.insert(0, FUBON_API_DIR)
 
 # ── 常數 ──────────────────────────────────────────────────────────────────
 STATUS_FILE = "/tmp/trading_status.json"
-WATCHLIST_FILE = f"{SCREENER_DIR}/watchlist.json"
+WATCHLIST_FILE = "/home/admin/pCloudDrive/openclaw/stock-screener/data/tracking_list.json"
 ENV_FILE = "/home/admin/.env/fubon.env"
 LOG_FILE = f"{SCREENER_DIR}/log/websocket_monitor.log"
 
@@ -37,7 +37,7 @@ RETRY_WAIT = 60       # 遇到 429 等候秒數
 MAX_RETRIES = 3       # WebSocket 重連次數
 
 # WebSocket channels
-CHANNEL_TICK = "tick"
+CHANNEL_TICK = "trades"
 
 # ── 載入環境變數 ────────────────────────────────────────────────────────────
 def load_env():
@@ -99,15 +99,15 @@ def http_get_with_retry(fn, *args, **kwargs):
             return fn(*args, **kwargs)
         except FugleAPIError as e:
             if e.status_code == 429:
-                log(f⚠️ Rate Limit 429，等待 {RETRY_WAIT} 秒後重試（第 {attempt+1} 次）...")
+                log(f"WARNING: Rate Limit 429，等待 {RETRY_WAIT} 秒後重試（第 {attempt+1} 次）...")
                 time.sleep(RETRY_WAIT)
             else:
-                log(f❌ FugleAPIError: status={e.status_code} msg={e.response_text}")
+                log(f"ERROR: FugleAPIError: status={e.status_code} msg={e.response_text}")
                 raise
         except Exception as e:
-            log(f❌ HTTP API 錯誤: {e}")
+            log(f"ERROR: HTTP API 錯誤: {e}")
             raise
-    log(f❌ 超過最大重試次數")
+    log("ERROR: 超過最大重試次數")
     return None
 
 # ── MA 查詢（帶 Rate Limit 延遲） ─────────────────────────────────────────
@@ -136,7 +136,7 @@ def get_ma5_ma20(sdk, symbol: str) -> Optional[Dict[str, float]]:
             return None
         return {"ma5": ma5, "ma20": ma20}
     except Exception as e:
-        log(f❌ get_ma5_ma20({symbol}) 錯誤: {e}")
+        log(f"ERROR: get_ma5_ma20({symbol}) 錯誤: {e}")
         return None
 
 # ── 時間檢查（模擬盤不交易）─────────────────────────────────────────────
@@ -170,13 +170,13 @@ def preload_ma_data(sdk, symbols: List[str]) -> Dict[str, Dict[str, float]]:
     """預先載入所有觀察名單的 MA5/MA20"""
     ma_cache = {}
     for sym in symbols:
-        log(f📊 查詢 MA: {sym}")
+        log(f"INFO: 查詢 MA: {sym}")
         ma = get_ma5_ma20(sdk, sym)
         if ma:
             ma_cache[sym] = ma
-            log(f  {sym}: MA5={ma['ma5']:.2f} MA20={ma['ma20']:.2f} gap={(ma['ma20']-ma['ma5'])/ma['ma20']*100:.3f}%")
+            log(f"  {sym}: MA5={ma['ma5']:.2f} MA20={ma['ma20']:.2f} gap={(ma['ma20']-ma['ma5'])/ma['ma20']*100:.3f}%")
         else:
-            log(f  {sym}: MA 資料不足")
+            log(f"  {sym}: MA 資料不足")
     return ma_cache
 
 # ── WebSocket 管理 ─────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ class WebSocketManager:
         ws.on("disconnect", self._on_disconnect)
         ws.on("message", self._on_message)
         ws.on("error", self._on_error)
-        log(f🔌 [{self.name}] 連線中...")
+        log(f"DEBUG: [{self.name}] 連線中...")
         ws.connect()
         # 等認證完成
         timeout = 10
@@ -212,11 +212,11 @@ class WebSocketManager:
                 from fugle_marketdata.websocket.client import AuthenticationState
                 if status == AuthenticationState.AUTHENTICATED:
                     self.connected = True
-                    log(f✅ [{self.name}] 已認證")
+                    log(f"OK: [{self.name}] 已認證")
                     self._flush_subscriptions()
                     return True
             time.sleep(0.1)
-        log(f⚠️ [{self.name}] 認證超時")
+        log(f"WARNING: [{self.name}] 認證超時")
         return False
 
     def _flush_subscriptions(self):
@@ -235,7 +235,7 @@ class WebSocketManager:
     def _do_subscribe(self, params: dict):
         sym = params.get("symbol", "?")
         self.ws.subscribe(params)
-        log(f📡 [{self.name}] 訂閱 {params.get('channel')} {sym}")
+        log(f"INFO: [{self.name}] 訂閱 {params.get('channel')} {sym}")
 
     def unsubscribe(self, params: dict):
         self.ws.unsubscribe(params)
@@ -246,11 +246,11 @@ class WebSocketManager:
         self.ws.on(event, handler)
 
     def _on_connect(self, *args):
-        log(f🔌 [{self.name}] 連線開啟")
+        log(f"DEBUG: [{self.name}] 連線開啟")
         self.connected = True
 
     def _on_disconnect(self, *args):
-        log(f🔌 [{self.name}] 連線斷開")
+        log(f"DEBUG: [{self.name}] 連線斷開")
         self.connected = False
 
     def _on_message(self, data):
@@ -264,19 +264,19 @@ class WebSocketManager:
             if handler:
                 handler(msg)
         except Exception as e:
-            log(f❌ [{self.name}] 訊息解析錯誤: {e}")
+            log(f"ERROR: [{self.name}] 訊息解析錯誤: {e}")
 
     def _on_error(self, err):
-        log(f❌ [{self.name}] WebSocket 錯誤: {err}")
+        log(f"ERROR: [{self.name}] WebSocket 錯誤: {err}")
 
     def reconnect(self):
         """斷線重連（最多 3 次）"""
         if self._retry_count >= MAX_RETRIES:
-            log(f❌ [{self.name}] 超過最大重連次數")
+            log(f"ERROR: [{self.name}] 超過最大重連次數")
             return False
         self._retry_count += 1
         wait = RETRY_WAIT * self._retry_count
-        log(f🔄 [{self.name}] 等待 {wait} 秒後重連（第 {self._retry_count} 次）...")
+        log(f"INFO: [{self.name}] 等待 {wait} 秒後重連（第 {self._retry_count} 次）...")
         time.sleep(wait)
         try:
             self.ws.disconnect()
@@ -299,13 +299,11 @@ class SignalChecker:
         self.sdk = sdk
         self.ma_cache = ma_cache  # 預先載入的 MA 資料
 
-    def check_entry(self, symbol: str, last_price: float,
-                    inside_vol: int, outside_vol: int) -> Optional[Dict]:
+    def check_entry(self, symbol: str, last_price: float) -> Optional[Dict]:
         """
         檢查進場條件：
         1. MA5 > MA20（黃金交叉）
         2. 現價 > MA5
-        3. 外盤 > 內盤 × 2（大單買入）
         """
         ma = self.ma_cache.get(symbol)
         if not ma:
@@ -316,9 +314,8 @@ class SignalChecker:
 
         cond1 = ma5 > ma20            # 黃金交叉
         cond2 = last_price > ma5      # 價格 > MA5
-        cond3 = inside_vol > 0 and outside_vol > inside_vol * 2  # 大單買入
 
-        signal = cond1 and cond2 and cond3
+        signal = cond1 and cond2
 
         return {
             "symbol": symbol,
@@ -326,11 +323,8 @@ class SignalChecker:
             "ma5": ma5,
             "ma20": ma20,
             "gap_pct": (ma20 - ma5) / ma20 * 100 if ma20 else 0,
-            "inside_vol": inside_vol,
-            "outside_vol": outside_vol,
             "cond1_ma5_gt_ma20": cond1,
             "cond2_price_gt_ma5": cond2,
-            "cond3_big_order": cond3,
             "signal": signal,
         }
 
@@ -373,10 +367,10 @@ def place_market_sell(sdk, symbol: str, quantity: int = 1):
             time_in_force=TimeInForce.IOC,
             price=0,
         )
-        log(f📤 卖出 {symbol} @ 市價 quantity={quantity}")
+        log(f"INFO: 卖出 {symbol} @ 市價 quantity={quantity}")
         return order
     except Exception as e:
-        log(f❌ 卖出 {symbol} 失敗: {e}")
+        log(f"ERROR: 卖出 {symbol} 失敗: {e}")
         return None
 
 # ── 狀態初始化 ──────────────────────────────────────────────────────────────
@@ -387,26 +381,28 @@ def load_watchlist() -> dict:
     return {"holdings": {}, "watchlist": []}
 
 # ── 解析 Tick 訊息 ─────────────────────────────────────────────────────────
-def parse_tick(msg: dict) -> Optional[dict]:
+def parse_tick(msg) -> Optional[dict]:
     """從 WebSocket 訊息解析 tick data"""
     try:
+        if isinstance(msg, str):
+            msg = json.loads(msg)
         event = msg.get("event", "")
-        if event != "message":
+        if event not in ("data", "message"):
             return None
         data = msg.get("data", {})
         if isinstance(data, dict):
             symbol = data.get("symbol", "")
-            last_price = data.get("lastPrice") or data.get("lastPrice") or 0
-            inside_vol = data.get("insideVolume") or 0
-            outside_vol = data.get("outsideVolume") or 0
+            # trades channel: price, volume
+            # tick channel: lastPrice, volume, insideVolume, outsideVolume
+            last_price = float(data.get("price") or data.get("lastPrice") or 0)
+            volume = int(data.get("volume") or 0)
             return {
                 "symbol": symbol,
                 "lastPrice": last_price,
-                "insideVolume": inside_vol,
-                "outsideVolume": outside_vol,
+                "volume": volume,
             }
     except Exception as e:
-        log(f❌ parse_tick 錯誤: {e}")
+        log(f"ERROR: parse_tick 錯誤: {e}")
     return None
 
 # ── 主程式 ─────────────────────────────────────────────────────────────────
@@ -425,30 +421,42 @@ def main():
     holdings_raw = wl_data.get("holdings", {})
     watchlist = wl_data.get("watchlist", [])
 
-    # 整理持倉（格式：[{"code": "2536", ...}]）
+    # 整理持倉（支援 list 和 dict 兩種格式）
     holdings = []
-    for code, h in holdings_raw.items():
-        if isinstance(h, dict) and h.get("entry_price", 0) > 0:
-            holdings.append({
-                "code": code,
-                "entry": h.get("entry_price", 0),
-                "qty": h.get("qty", 1),
-                "stop": h.get("stop_loss", 0),
-                "target": h.get("target_price", 0),
-                "name": h.get("name", code),
-            })
+    if isinstance(holdings_raw, list):
+        # list 格式：[{"code": "2536", "entry_price": 22.532, ...}]
+        for h in holdings_raw:
+            if isinstance(h, dict) and h.get("entry_price", 0) > 0:
+                holdings.append({
+                    "code": h.get("code", ""),
+                    "entry": h.get("entry_price", 0),
+                    "qty": h.get("qty", 1),
+                    "stop": h.get("stop_loss", 0),
+                    "target": h.get("target_price", 0),
+                    "name": h.get("name", h.get("code", "")),
+                })
+    elif isinstance(holdings_raw, dict):
+        # dict 格式：{"2536": {"entry_price": 22.532, ...}}
+        for code, h in holdings_raw.items():
+            if isinstance(h, dict) and h.get("entry_price", 0) > 0:
+                holdings.append({
+                    "code": code,
+                    "entry": h.get("entry_price", 0),
+                    "qty": h.get("qty", 1),
+                    "stop": h.get("stop_loss", 0),
+                    "target": h.get("target_price", 0),
+                    "name": h.get("name", code),
+                })
 
     # 觀察名單（排除已有部位的）
     holding_codes = set(h["code"] for h in holdings)
     watchlist_codes = [
         w["code"] for w in watchlist
-        if w.get("strategy") in ("策略A_5of5", "新策略A")
-        and w.get("code") not in holding_codes
-        and not w.get("is_holding", False)
+        if w.get("code") not in holding_codes
     ]
 
-    log(f📋 持倉: {[h['code'] for h in holdings]}")
-    log(f👀 觀察名單: {watchlist_codes}")
+    log(f"INFO: 持倉: {[h['code'] for h in holdings]}")
+    log(f"INFO: 觀察名單: {watchlist_codes}")
 
     # ── 連線 1：持倉監控（最多 5 檔）───────────────────────────────
     ws_positions = WebSocketManager(sdk, "positions")
@@ -489,11 +497,7 @@ def main():
             return
 
         last = float(tick["lastPrice"] or 0)
-        inside = int(tick["insideVolume"] or 0)
-        outside = int(tick["outsideVolume"] or 0)
-
         position_prices[sym] = last
-        position_vol[sym] = {"inside": inside, "outside": outside}
 
         # 找持倉
         pos = next((p for p in holdings if p["code"] == sym), None)
@@ -506,7 +510,7 @@ def main():
         action = pos_monitor.check(pos, last)
         if action:
             # 模擬盤時間不停損/不了結，僅記錄
-            log(f"⚠️ {sym} 達到 {action} 條件（模擬盤，暫不執行）現價={last}")
+            log(f"INFO: {sym} 達到 {action} 條件（模擬盤，暫不執行）現價={last}")
             action = None  # 清除行動
         pos_entry = {
             "code": sym,
@@ -517,8 +521,6 @@ def main():
             "pnl": round((last - pos["entry"]) / pos["entry"] * 100, 2) if pos["entry"] else 0,
             "stop": pos["stop"],
             "target": pos["target"],
-            "inside": inside,
-            "outside": outside,
             "action": action,
         }
 
@@ -527,7 +529,7 @@ def main():
         status["holdings"].append(pos_entry)
 
         if action:
-            log(f🚨 {sym} 觸發 {action}！現價={last} 停損={pos['stop']} 目標={pos['target']}")
+            log(f"INFO: {sym} 觸發 {action}！現價={last} 停損={pos['stop']} 目標={pos['target']}")
             status["has_action"] = True
             actions_taken.append((sym, action, pos))
 
@@ -543,19 +545,14 @@ def main():
             return
 
         last = float(tick["lastPrice"] or 0)
-        inside = int(tick["insideVolume"] or 0)
-        outside = int(tick["outsideVolume"] or 0)
-
         signal_prices[sym] = last
-        signal_vol[sym] = {"inside": inside, "outside": outside}
 
         if not is_market_open():
             return  # 模擬盤時間（08:30-09:00）不進場
         
-        result = signal_checker.check_entry(sym, last, inside, outside)
+        result = signal_checker.check_entry(sym, last)
         if result and result["signal"]:
-            log(f🚀 進場信號！{sym} 現價={last} MA5={result['ma5']:.2f} MA20={result['ma20']:.2f} "
-                f"外內比={outside}/{inside}={outside/inside if inside else 'N/A':.1f}")
+            log(f"INFO: 進場信號！{sym} 現價={last} MA5={result['ma5']:.2f} MA20={result['ma20']:.2f}")
 
             # 更新 signals
             status["signals"] = [s for s in status["signals"] if s["code"] != sym]
@@ -565,9 +562,7 @@ def main():
                 "ma5": result["ma5"],
                 "ma20": result["ma20"],
                 "gap_pct": round(result["gap_pct"], 3),
-                "inside": inside,
-                "outside": outside,
-                "note": "MA5>MA20 且 現價>MA5 且 外盤>內盤×2",
+                "note": "MA5>MA20 且 現價>MA5",
             })
             write_status(status)
 
@@ -576,11 +571,11 @@ def main():
     if holdings:
         if ws_positions.connect():
             for h in holdings[:5]:  # 最多 5 檔
-                ws_positions.subscribe({"channel": CHANNEL_TICK, "symbol": h["code"]})
+                ws_positions.subscribe({"channel": "trades", "symbol": h["code"]})
             ws_positions.add_handler("message", on_position_tick)
-            log(f📡 持倉監控已訂閱 {len(holdings[:5])} 檔")
+            log(f"INFO: 持倉監控已訂閱 {len(holdings[:5])} 檔")
         else:
-            log(f❌ 持倉 WebSocket 連線失敗")
+            log("ERROR: 持倉 WebSocket 連線失敗")
     else:
         log("📋 無持倉，跳過持倉連線")
 
@@ -592,20 +587,20 @@ def main():
             for i in range(0, min(len(watchlist_codes), 200), batch):
                 batch_codes = watchlist_codes[i:i+batch]
                 for code in batch_codes:
-                    ws_watchlist.subscribe({"channel": CHANNEL_TICK, "symbol": code})
-                log(f📡 觀察名單已訂閱 {len(batch_codes)} 檔")
+                    ws_watchlist.subscribe({"channel": "trades", "symbol": code})
+                log(f"INFO: 觀察名單已訂閱 {len(batch_codes)} 檔")
             ws_watchlist.add_handler("message", on_watchlist_tick)
         else:
-            log(f❌ 觀察名單 WebSocket 連線失敗")
+            log("ERROR: 觀察名單 WebSocket 連線失敗")
     else:
         log("📋 無觀察名單，跳過")
 
     # ── 執行買賣 ────────────────────────────────────────────────
     if actions_taken:
-        log(f"\n⚡ 執行 {len(actions_taken)} 筆交易...")
+        log(f"INFO: 執行 {len(actions_taken)} 筆交易...")
         for sym, action, pos in actions_taken:
             if action in ("STOP_LOSS", "TARGET"):
-                log(f  {'🛑' if action=='STOP_LOSS' else '🏠'} {action} {sym}")
+                log(f"  {'🛑' if action=='STOP_LOSS' else '🏠'} {action} {sym}")
                 place_market_sell(sdk, sym, pos.get("qty", 1))
 
                 # 更新 watchlist.json 的 holdings
@@ -617,7 +612,7 @@ def main():
 
     # ── 定期寫入狀態 ─────────────────────────────────────────────
     # 讓 WebSocket 運行一段時間（主動中斷時結束）
-    log(f"\n📡 WebSocket 監控運行中（等待訊息，按 Ctrl-C 結束）...")
+    log("INFO: WebSocket 監控運行中（等待訊息，按 Ctrl-C 結束）...")
     try:
         while True:
             time.sleep(5)
@@ -631,7 +626,7 @@ def main():
                 if not ws_positions.reconnect():
                     break
                 for h in holdings[:5]:
-                    ws_positions.subscribe({"channel": CHANNEL_TICK, "symbol": h["code"]})
+                    ws_positions.subscribe({"channel": "trades", "symbol": h["code"]})
                 ws_positions.add_handler("message", on_position_tick)
 
             if watchlist_codes and not ws_watchlist.connected:
@@ -639,7 +634,7 @@ def main():
                 if not ws_watchlist.reconnect():
                     break
                 for code in watchlist_codes[:200]:
-                    ws_watchlist.subscribe({"channel": CHANNEL_TICK, "symbol": code})
+                    ws_watchlist.subscribe({"channel": "trades", "symbol": code})
                 ws_watchlist.add_handler("message", on_watchlist_tick)
 
     except KeyboardInterrupt:
@@ -656,7 +651,7 @@ def main():
                 json.dump(wl_data_current, f, ensure_ascii=False, indent=2)
             log("✅ watchlist.json 已更新")
         except Exception as e:
-            log(f"⚠️ watchlist 更新失敗: {e}")
+            log(f"INFO: watchlist 更新失敗: {e}")
 
         # 結束連線
         ws_positions.disconnect()
